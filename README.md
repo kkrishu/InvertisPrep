@@ -1,5 +1,6 @@
 # Quizzo - Multiplayer Quiz Game
 
+
 A real-time multiplayer quiz application where students can test their knowledge in various subjects including C, Data Structures & Algorithms, Python, Java, and Web Development.
 
 ## 🌟 Features
