@@ -2,18 +2,32 @@ import jwt from 'jsonwebtoken';
 
 export const authenticateJWT = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1] || req.cookies?.token;
+    let token = req.headers.authorization || req.cookies?.token;
 
     if (!token) {
-      res.status(401).json({ success: false, message: 'Authentication required' });
+      console.log(`[Auth] No token provided for ${req.method} ${req.originalUrl}`);
+      res.status(401).json({ success: false, message: 'Authentication required. Please log in.' });
       return;
     }
+
+    // Handle "Bearer <token>" format
+    if (token.startsWith('Bearer ')) {
+      token = token.slice(7);
+    }
+
+    // Trim any accidental whitespace or newlines (common in mobile app injections)
+    token = token.trim();
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
-    res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    console.error(`[Auth] JWT Verification failed: ${error.message}`);
+    res.status(401).json({
+      success: false,
+      message: 'Your session has expired or is invalid. Please log in again.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

@@ -53,7 +53,7 @@ export const getReports = async (req, res) => {
     const reports = await Report.find(filter)
       .populate({
         path: 'paperId',
-        select: 'title subjectName subjectCode departmentId branchId semester sessionId examType year cloudinaryUrl uploadedBy',
+        select: 'title subjectName subjectCode departmentId branchId semester sessionId examType year uploadedBy',
         populate: [
           { path: 'departmentId', select: 'displayName name' },
           { path: 'branchId', select: 'name' },

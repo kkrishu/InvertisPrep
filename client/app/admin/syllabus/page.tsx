@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +23,7 @@ interface Syllabus {
 }
 
 export default function SyllabusManagementPage() {
+  const router = useRouter();
   const [syllabus, setSyllabus] = useState<Syllabus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -303,7 +305,7 @@ export default function SyllabusManagementPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => window.open(item.cloudinaryUrl, '_blank')}
+                                    onClick={() => router.push(`/view/${item._id}?type=syllabus`)}
                                     className="flex items-center gap-1"
                                   >
                                     <Eye className="h-3 w-3" />
@@ -312,12 +314,7 @@ export default function SyllabusManagementPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => {
-                                      const link = document.createElement('a');
-                                      link.href = item.cloudinaryUrl!;
-                                      link.download = item.fileName;
-                                      link.click();
-                                    }}
+                                    onClick={() => router.push(`/view/${item._id}?type=syllabus`)}
                                     className="flex items-center gap-1"
                                   >
                                     <Download className="h-3 w-3" />

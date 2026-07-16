@@ -1,4 +1,4 @@
-import Syllabus from '../models/Syllabus.js';
+import { Syllabus } from '../models/Syllabus.js';
 import { uploadPDF, deletePDF } from '../services/cloudinaryService.js';
 
 export const uploadSyllabus = async (req, res) => {
@@ -47,7 +47,7 @@ export const getSyllabus = async (req, res) => {
     if (department) filter.department = department;
     if (year) filter.year = year;
 
-    const syllabus = await Syllabus.find(filter)
+    const syllabus = await Syllabus.find(filter, { cloudinaryUrl: 0, cloudinaryPublicId: 0 })
       .populate('uploadedBy', 'name email')
       .sort({ createdAt: -1 });
 
@@ -60,7 +60,7 @@ export const getSyllabus = async (req, res) => {
 
 export const getAllSyllabus = async (req, res) => {
   try {
-    const syllabus = await Syllabus.find({ isActive: true })
+    const syllabus = await Syllabus.find({ isActive: true }, { cloudinaryUrl: 0, cloudinaryPublicId: 0 })
       .populate('uploadedBy', 'name email')
       .sort({ createdAt: -1 });
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { reportApi, pyqApi } from '@/lib/api';
 import type { Report } from '@/types';
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 
 export default function AdminReportsPage() {
+  const router = useRouter();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -312,7 +314,7 @@ export default function AdminReportsPage() {
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={() => window.open(paper.cloudinaryUrl, '_blank')}
+                              onClick={() => router.push(`/view/${paper._id}?type=pyq`)}
                               className="flex items-center gap-1"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />

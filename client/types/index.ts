@@ -120,8 +120,8 @@ export interface PYQPaper {
   semester: number;
   examType: ExamType;
   year: number;
-  cloudinaryUrl: string;
-  cloudinaryPublicId: string;
+  cloudinaryUrl?: string;
+  cloudinaryPublicId?: string;
   fileName: string;
   fileSize?: number;
   uploadedBy: string | User;

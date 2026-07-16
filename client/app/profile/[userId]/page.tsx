@@ -311,12 +311,12 @@ export default function UserProfilePage() {
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          asChild
+                          onClick={() => router.push(`/view/${paper._id}?type=pyq`)}
                           className="h-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 font-semibold"
                         >
-                          <a href={paper.cloudinaryUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
+                          <span className="flex items-center gap-1">
                             View File
-                          </a>
+                          </span>
                         </Button>
                       </div>
                     </CardContent>

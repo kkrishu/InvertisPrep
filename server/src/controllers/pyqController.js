@@ -94,7 +94,7 @@ export const getPYQs = async (req, res) => {
       ];
     }
 
-    const pyqs = await PYQPaper.find(filter)
+    const pyqs = await PYQPaper.find(filter, { cloudinaryUrl: 0, cloudinaryPublicId: 0 })
       .populate('departmentId', 'name displayName icon')
       .populate('branchId', 'name')
       .populate('sessionId', 'name startYear endYear')

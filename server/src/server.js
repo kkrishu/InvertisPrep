@@ -21,6 +21,7 @@ import pyqRoutes from './routes/pyq.js';
 import syllabusRoutes from './routes/syllabus.js';
 import userRoutes from './routes/users.js';
 import reportRoutes from './routes/reports.js';
+import pdfRoutes from './routes/pdf.js';
 
 // Load environment variables
 dotenv.config();
@@ -89,6 +90,7 @@ const initApp = async () => {
   app.use('/api/syllabus', syllabusRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/reports', reportRoutes);
+  app.use('/api/pdf', pdfRoutes);
 
   // Error handling
   app.use(notFound);

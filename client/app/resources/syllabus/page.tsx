@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Eye, FileText, Search, ChevronRight } from 'lucide-react';
@@ -21,6 +22,7 @@ interface Syllabus {
 }
 
 export default function SyllabusPage() {
+  const router = useRouter();
   const [syllabus, setSyllabus] = useState<Syllabus[]>([]);
   const [filteredSyllabus, setFilteredSyllabus] = useState<Syllabus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +134,7 @@ export default function SyllabusPage() {
                             variant="outline" 
                             size="sm"
                             className="h-8 px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-gray-300 hover:text-white"
-                            onClick={() => window.open(item.cloudinaryUrl, '_blank')}
+                            onClick={() => router.push(`/view/${item._id}?type=syllabus`)}
                           >
                             <Eye className="h-4 w-4" />
                             View

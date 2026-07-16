@@ -32,4 +32,4 @@ const syllabusSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model('Syllabus', syllabusSchema);
+export const Syllabus = mongoose.model('Syllabus', syllabusSchema);

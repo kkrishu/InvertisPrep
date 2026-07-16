@@ -34,6 +34,7 @@ export const login = async (req, res) => {
     const payload = {
       id: user._id.toString(),
       email: user.email,
+      name: user.name,
       role: user.role,
     };
 
@@ -185,6 +186,7 @@ export const googleLogin = async (req, res) => {
     const payload = {
       id: user._id.toString(),
       email: user.email,
+      name: user.name,
       role: user.role,
     };
 

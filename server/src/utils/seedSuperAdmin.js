@@ -23,36 +23,47 @@ async function seedSuperAdmin() {
       throw new Error('MONGODB_URI is not defined in environment variables');
     }
 
+    // Handle command line arguments for password
+    const args = process.argv.slice(2);
+    const passwordArg = args.find(arg => arg.startsWith('--password='));
+    const newPassword = passwordArg ? passwordArg.split('=')[1] : superAdmin.password;
+
     console.log('🔌 Connecting to MongoDB...');
     await mongoose.connect(mongoURI);
     console.log('✅ Connected to MongoDB\n');
 
-    // Delete existing super admin if exists
+    // Check if super admin exists
     const existing = await User.findOne({ email: superAdmin.email });
     
     if (existing) {
-      console.log('🗑️  Deleting existing super admin...\n');
-      await User.deleteOne({ email: superAdmin.email });
+      console.log('👤 Super admin already exists. Updating password...');
+      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+      existing.password = hashedPassword;
+      existing.isActive = true;
+      existing.lastLogin = new Date();
+      await existing.save();
+      console.log('✅ Password updated successfully\n');
+    } else {
+      // Create new super admin with hashed password
+      console.log('👤 Creating super admin...');
+      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+      await User.create({
+        email: superAdmin.email,
+        password: hashedPassword,
+        name: superAdmin.name,
+        role: superAdmin.role,
+        isActive: true,
+        lastLogin: new Date(),
+      });
+      console.log('✅ Super admin created\n');
     }
 
-    // Create new super admin with hashed password
-    console.log('👤 Creating super admin...');
-    const hashedPassword = await bcrypt.hash(superAdmin.password, SALT_ROUNDS);
-    
-    const newUser = await User.create({
-      email: superAdmin.email,
-      password: hashedPassword,
-      name: superAdmin.name,
-      role: superAdmin.role,
-      isActive: true,
-      lastLogin: new Date(),
-    });
-    
-    console.log('✅ Super admin created\n');
-
-    // Print success message without credentials
+    // Print success message
     console.log('='.repeat(80));
-    console.log('✅ SUPER ADMIN SEEDED SUCCESSFULLY!');
+    console.log('✅ SUPER ADMIN OPERATION SUCCESSFUL!');
+    console.log(`   Email: ${superAdmin.email}`);
+    console.log(`   Password: ${newPassword}`);
     console.log('='.repeat(80));
     console.log('\n📋 NEXT STEPS:');
     console.log('   1. Run: npm run dev');

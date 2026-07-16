@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { pyqApi } from '@/lib/api';
 import type { PYQPaper, User, ExamType } from '@/types';
@@ -10,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
 
 export default function PapersPage() {
+  const router = useRouter();
   const [papers, setPapers] = useState<PYQPaper[]>([]);
   const [filteredPapers, setFilteredPapers] = useState<PYQPaper[]>([]);
   const [loading, setLoading] = useState(true);
@@ -203,7 +205,7 @@ export default function PapersPage() {
   const handleDownload = async (paper: PYQPaper) => {
     try {
       await pyqApi.trackDownload(paper._id);
-      window.open(paper.cloudinaryUrl, '_blank');
+      router.push(`/view/${paper._id}?type=pyq`);
     } catch (err: unknown) {
       setError('Failed to track download');
     }

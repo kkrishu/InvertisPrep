@@ -149,7 +149,7 @@ export default function DepartmentPYQPage() {
   const handleDownload = async (paper: PYQPaper) => {
     try {
       await pyqApi.trackDownload(paper._id);
-      window.open(paper.cloudinaryUrl, '_blank');
+      router.push(`/view/${paper._id}?type=pyq`);
     } catch (err: unknown) {
       alert('Download failed. Please try again.');
     }
@@ -158,7 +158,7 @@ export default function DepartmentPYQPage() {
   const handleView = async (paper: PYQPaper) => { 
     try {
       await pyqApi.trackView(paper._id);
-      window.open(paper.cloudinaryUrl, '_blank');
+      router.push(`/view/${paper._id}?type=pyq`);
     } catch (err: unknown) {
       alert('View failed. Please try again.');
     }
@@ -384,13 +384,22 @@ export default function DepartmentPYQPage() {
             ) : (
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {filteredPapers.map((paper) => (
-                  <Card key={paper._id} onMouseEnter={() => handleView(paper)}>
-                    <CardHeader>
-                      <div className="grid grid-cols-2 md:flex md:flex-row md:justify-between items-center gap-4">
-                        <div>
-                          <CardTitle className="text-xl">{paper.subjectName}</CardTitle>
-                          <CardDescription>
-                            {paper.subjectCode} | {paper.examType.toUpperCase()} | Year {paper.year}
+                  <Card
+                    key={paper._id}
+                    className="group h-full overflow-hidden border-slate-200/70 bg-white py-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg md:py-4.5"
+                  >
+                    <CardHeader className="border-b border-slate-100  px-4 md:px-5">
+                      <div className="space-y-1">
+                        <div className="min-w-0 space-y-1">
+                          <CardTitle className="text-base font-bold tracking-tight text-slate-900 md:text-lg">
+                            {paper.subjectName}
+                          </CardTitle>
+                          <CardDescription className="flex flex-wrap items-center gap-2 text-xs text-slate-500 md:text-sm">
+                            <span>{paper.subjectCode || 'N/A'}</span>
+                            <span className="h-1 w-1 rounded-full bg-slate-300" />
+                            <span>{paper.examType.toUpperCase()}</span>
+                            <span className="h-1 w-1 rounded-full bg-slate-300" />
+                            <span>Year {paper.year}</span>
                           </CardDescription>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
@@ -403,15 +412,11 @@ export default function DepartmentPYQPage() {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 md:flex md:flex-row md:justify-between gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Branch</p>
-                          <p className="font-medium">{getBranchName(paper)}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Semester</p>
-                          <p className="font-medium">Semester {paper.semester}</p>
+                    <CardContent className="px-4  md:px-5">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 text-sm">
+                        <div className="rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-100">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Session</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-900">{getSessionName(paper)}</p>
                         </div>
                         <div className="rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-100">
                           <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Downloads / Views</p>
