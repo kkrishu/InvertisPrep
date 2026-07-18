@@ -32,4 +32,7 @@ const syllabusSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Index for the public listing query: filter by isActive + sort by createdAt
+syllabusSchema.index({ isActive: 1, createdAt: -1 });
+
 export const Syllabus = mongoose.model('Syllabus', syllabusSchema);

@@ -95,6 +95,11 @@ export const departmentApi = {
     return data;
   },
 
+  getById: async (id: string): Promise<APIResponse<Department>> => {
+    const { data } = await apiClient.get<APIResponse<Department>>(`/departments/${id}`);
+    return data;
+  },
+
   create: async (department: CreateDepartmentDTO): Promise<APIResponse<Department>> => {
     const { data } = await apiClient.post<APIResponse<Department>>('/departments', department);
     return data;

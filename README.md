@@ -47,6 +47,7 @@ profiles) and a content-reporting/moderation workflow.
 |---|---|
 | Framework | **Next.js 16** (App Router, Turbopack) |
 | UI | **React 19**, **Tailwind CSS v4**, **shadcn/ui** (Radix primitives), `lucide-react` |
+| PDF Viewer | **react-pdf v10** (`pdfjs-dist`) — in-app rendering with page nav, zoom, security guards |
 | Auth | **next-auth v4** (Google OAuth) + custom JWT in `localStorage` |
 | HTTP | **axios** with request/response interceptors |
 | State | React Context (`AuthContext`) — no Redux/Zustand |
@@ -62,6 +63,7 @@ profiles) and a content-reporting/moderation workflow.
 | Database | **MongoDB** via **Mongoose 8** |
 | Auth | **jsonwebtoken** (JWT) + **bcryptjs** (admin passwords) + **google-auth-library** (token verification) |
 | File storage | **Cloudinary** (raw PDF uploads) + **multer** (multipart parsing) |
+| PDF processing | **pdf-lib** (server-side per-user watermarking) |
 | Security | `helmet`, `cors`, `morgan`, `cookie-parser` |
 | Language | **JavaScript (ESM)** |
 
@@ -110,12 +112,13 @@ InvertisPrep/
 │   │   │   ├── [departmentId]/page.tsx
 │   │   │   └── upload/page.tsx
 │   │   ├── resources/syllabus/  # Syllabus PDFs
+│   │   ├── view/[id]/           # Protected PDF viewer (watermarked)
 │   │   ├── profile/[userId]/    # Public profiles
 │   │   ├── admin/               # Protected admin area
 │   │   │   ├── dashboard/ departments/ branches/ sessions/
 │   │   │   ├── upload/ papers/ syllabus/ reports/
 │   │   └── quizz0/              # "Coming Soon" placeholder
-│   ├── components/              # Navbar, ProtectedRoute, layout/*, ui/* (shadcn)
+│   ├── components/              # Navbar, ProtectedRoute, PDFViewer, layout/*, ui/* (shadcn)
 │   ├── contexts/AuthContext.tsx
 │   ├── lib/api.ts               # axios instance + domain API modules
 │   ├── types/index.ts           # shared TS types
@@ -153,6 +156,7 @@ InvertisPrep/
 - **Admin PYQ upload** (immediately eligible) and **student upload** (requires verification, rate-limited to **10/day** in IST).
 - **Verification workflow** — super-admin verifies student uploads before they go public.
 - **Syllabus PDFs** browsable by department/year.
+- **Protected in-app PDF viewer** — renders papers inside the app using `react-pdf` with server-side per-user watermarks (`pdf-lib`). Works on web and Android WebView. Blocks casual download (no native PDF viewer buttons), stamps viewer identity on every page, and disables right-click/save shortcuts.
 - **Social graph** — follow/unfollow users, public profiles showing their last 10 verified papers.
 - **Content reporting & moderation** — report papers for wrong file/quality/metadata; admin triage UI.
 - **Analytics** — per-paper view & download counters.
@@ -176,7 +180,7 @@ All in `server/src/models/`. Key relationships: **Department 1→N Branch**; **P
 ### PYQPaper (core entity)
 `title` (auto: `subjectName examType year`) · `subjectCode` · `subjectName` · `departmentId` · `branchId` · `semester` (1–10) · `sessionId` · `examType` (`mid-term`|`end-term`|`sessional`) · **`cloudinaryUrl`** · `cloudinaryPublicId` · `fileName` · `fileSize` · `year` · `uploadedBy` · `views` · `downloads` · `verified` · `isActive`
 
-> ⚠️ `cloudinaryUrl` is currently a **public, unsigned, non-expiring** URL returned to clients. See [PDF / Cloudinary Storage](#pdf--cloudinary-storage).
+> `cloudinaryUrl` is excluded from public API responses (`GET /api/pyq`). PDFs are served only through the authenticated proxy endpoint (`GET /api/pdf/view/:id`), which fetches from Cloudinary, applies per-user watermarks, and streams the result. See [PDF / Cloudinary Storage](#pdf--cloudinary-storage).
 
 ### Department
 `id` (unique slug, e.g. `btech`) · `name` · `displayName` · `icon` · `description` · `isActive`
@@ -223,6 +227,7 @@ Base path: `/api`. Auth legend: 🔓 public · 🔑 JWT required · 👑 admin �
 | DELETE | `/pyq/:id` | 👑 | Soft-delete + Cloudinary cleanup |
 
 ### Other resources
+- **PDF Viewer** `/api/pdf` — `GET /view/:id?type=pyq|syllabus` (🔑, returns watermarked PDF blob)
 - **Departments** `/api/departments` — list (🔓), CRUD (👑)
 - **Branches** `/api/branches` — all (👑)
 - **Sessions** `/api/sessions` — list (🔓), CRUD (👑)
@@ -262,27 +267,62 @@ The app uses **two coexisting mechanisms**, unified under a single JWT.
 
 ## PDF / Cloudinary Storage
 
-### Current state ⚠️
-PYQ and syllabus PDFs are uploaded to **Cloudinary with `resource_type: 'raw'`** (`server/src/services/cloudinaryService.js`). The stored `secure_url` is a **public, unsigned, non-expiring** URL, and it is **returned verbatim to clients** in the public `/api/pyq` list.
+### How it works ✅
 
-On the client, papers are opened with `window.open(paper.cloudinaryUrl, '_blank')` — relying on the **browser's native PDF viewer**, which always exposes Download/Print buttons.
+Papers are stored in **Cloudinary** as `raw` resources and **never served directly** to end-users. Instead, a server-side proxy fetches the PDF, stamps per-user watermarks, and streams the result to an in-app viewer.
 
-**Consequences:**
-- URLs are freely shareable/leechable forever.
-- No access logging per user.
-- **PDFs do not render in the Android WebView** — the native WebView has no PDF plugin, so `window.open()` to a `.pdf` shows nothing.
+```
+┌───────────┐   GET /api/pdf/view/:id   ┌──────────────┐   axios (arraybuffer)   ┌───────────┐
+│  Client    │ ──────── JWT ──────────► │  Express     │ ──────────────────────► │ Cloudinary│
+│  (react-   │                          │  Controller  │                         │ (raw PDF) │
+│   pdf)     │ ◄──── Blob (watermarked) │  (pdf-lib)   │ ◄────── PDF bytes ──────└───────────┘
+│            │       application/pdf     │              │
+└───────────┘                          └──────────────┘
+```
 
-### Planned: protected in-app PDF viewer
-The goal: display papers in a custom viewer so they can be read but not casually downloaded, and work inside the Android WebView. Candidate approaches:
+#### Upload flow
+1. Admin or student uploads a PDF via `POST /api/pyq/upload` (admin) or `POST /api/pyq/upload-public` (student).
+2. **Multer** validates the file (`application/pdf`, max 10 MB) and saves it to `uploads/`.
+3. **Cloudinary service** uploads it as `resource_type: 'raw'` and returns the `secure_url` + `public_id`.
+4. The MongoDB document (`PYQPaper` or `Syllabus`) stores the Cloudinary URL and public ID.
+5. The local temp file is deleted.
 
-| Approach | What it does | Protection | Effort |
-|---|---|---|---|
-| **A. pdf.js viewer** (`react-pdf`/`pdfjs-dist`) | Render pages to `<canvas>` in our own UI; block right-click/selection/Ctrl+S | Blocks casual download; bytes still reachable via DevTools | Low |
-| **B. Authenticated server proxy** `GET /api/pyq/:id/pdf` | Require JWT, stream PDF or return short-lived signed URL; stop leaking `cloudinaryUrl` | Non-shareable URLs, per-user access logs, revocable | Medium |
-| **C. Server-side page→image rendering** | Serve only images; no PDF bytes reach client | Strong (screenshot still possible) | Medium-High |
-| **D. Per-user watermark** | Stamp viewer's email/name on each page (`pdf-lib` or Cloudinary overlays) | Deters sharing — leaks are traceable | Medium |
+#### View flow (protected)
+1. Client calls `pdfApi.view(id, type)` → `GET /api/pdf/view/:id?type=pyq|syllabus` with `Authorization: Bearer <JWT>`.
+2. Server looks up the document, fetches the original PDF from Cloudinary via `axios` (`responseType: arraybuffer`).
+3. **`pdf-lib`** loads the PDF and stamps every page with two watermarks:
+   - **Diagonal watermark** (45°, center): `Viewed by: {userName} ({userEmail}) | {timestamp} | InvertisPrep` — light gray, opacity 0.3.
+   - **Bottom watermark** (bottom-left): `Protected by InvertisPrep - {userEmail}` — gray, opacity 0.5.
+4. The watermarked PDF bytes are sent back with `Content-Type: application/pdf` and `Cache-Control: no-store`.
 
-**Recommended:** **A + B + D** — pdf.js viewer fed by an authenticated proxy, with per-user watermarks. Works in WebView, removes obvious download buttons, makes URLs non-shareable, and traces leaks.
+#### Client-side viewer (`react-pdf`)
+- Renders PDF pages to `<canvas>` using `pdfjs-dist` — **no native browser PDF plugin needed**, which is why it works in the Android WebView.
+- Features: page navigation (prev/next), zoom (0.4×–3.0×), responsive width via `ResizeObserver`.
+- Security measures: right-click disabled, Ctrl+P/Ctrl+S/Ctrl+U blocked, text selection disabled.
+- Dark theme with a security notice footer.
+- `cloudinaryUrl` is **excluded** from the public `/api/pyq` list response — only the proxy endpoint can serve the file.
+
+#### Key files
+| File | Purpose |
+|---|---|
+| `client/components/PDFViewer.tsx` | In-app PDF viewer component (`react-pdf`) |
+| `client/app/view/[id]/page.tsx` | PDF view page (`/view/:id?type=pyq\|syllabus`) |
+| `client/lib/api.ts` | `pdfApi.view()` — blob request to proxy |
+| `server/src/controllers/pdfController.js` | Server proxy: Cloudinary fetch → `pdf-lib` watermark → response |
+| `server/src/routes/pdf.js` | Route: `GET /api/pdf/view/:id` (JWT required) |
+| `server/src/services/cloudinaryService.js` | Cloudinary upload/delete helpers |
+| `server/src/middleware/upload.js` | Multer config (PDF-only, 10 MB) |
+
+### What's protected vs. what's not
+| Aspect | Status |
+|---|---|
+| Cloudinary URL leaked in API | ✅ **Fixed** — excluded from public `/api/pyq` response |
+| Casual browser download (native PDF viewer) | ✅ **Fixed** — in-app viewer, no download button |
+| Android WebView PDF rendering | ✅ **Fixed** — `react-pdf` renders to canvas, no plugin needed |
+| Per-user watermarking | ✅ **Implemented** — email + name + timestamp on every page |
+| Right-click / keyboard save | ⚠️ **Obstructed** — disabled in viewer, but bypassable via DevTools |
+| DevTools / network inspection | ⚠️ **Not protected** — watermarked bytes are still in browser memory |
+| Screenshots / screen recording | ❌ **Not protected** — watermark is the only deterrent |
 
 ---
 
@@ -401,7 +441,7 @@ The webapp authenticates with a JWT stored in `localStorage` (`client/contexts/A
 
 ## Roadmap
 
-- [ ] **Protected PDF viewer** (pdf.js + authenticated proxy + watermark) — see [PDF / Cloudinary Storage](#pdf--cloudinary-storage).
+- [x] **Protected PDF viewer** (pdf.js + authenticated proxy + watermark) — ✅ implemented.
 - [ ] Quizzo quiz engine backend.
 - [ ] Leaderboard.
 - [ ] Student dashboard / Academic Progress / QC Wallet routes.
@@ -412,7 +452,8 @@ The webapp authenticates with a JWT stored in `localStorage` (`client/contexts/A
 
 ## Known Issues & Security Notes
 
-- 🔴 **PDFs are public and downloadable.** Cloudinary raw URLs are unsigned/non-expiring and leaked in API responses. Prioritize the protected viewer.
+- 🟢 **PDF viewer is protected.** Papers are served through an authenticated proxy with per-user watermarks. `cloudinaryUrl` is excluded from public API responses. Casual download is blocked.
+- ⚠️ **Watermarked PDF bytes are still inspectable** in browser DevTools/network tab. The watermark deters sharing but doesn't prevent it — a determined user can extract the PDF from memory.
 - 🟠 **Hardcoded super-admin password** in `seedSuperAdmin.js` (`super123`) — change before production.
 - 🟠 **`NEXTAUTH_SECRET` / Google credentials** should be rotated and kept out of version control.
 - 🟡 **View/download counter endpoints are unauthenticated** (`POST /pyq/:id/view|download`) — counters can be inflated. Add `authenticateJWT` if accurate analytics matter.

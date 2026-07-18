@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getDepartments,
+  getDepartmentById,
   createDepartment,
   updateDepartment,
   deleteDepartment,
@@ -13,6 +14,7 @@ const router = Router();
 // Public routes
 router.get('/', getDepartments);
 router.get('/:departmentId/branches', getBranchesByDepartment);
+router.get('/:id', getDepartmentById);
 
 // Admin routes
 router.post('/', authenticateJWT, isAdmin, createDepartment);

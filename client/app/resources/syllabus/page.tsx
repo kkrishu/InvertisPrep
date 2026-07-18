@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
+import { fetcher } from '@/lib/fetcher';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Eye, FileText, Search, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
-import { syllabusApi } from '@/lib/api';
+import type { APIResponse } from '@/types';
 
 interface Syllabus {
   _id: string;
@@ -23,38 +25,23 @@ interface Syllabus {
 
 export default function SyllabusPage() {
   const router = useRouter();
-  const [syllabus, setSyllabus] = useState<Syllabus[]>([]);
-  const [filteredSyllabus, setFilteredSyllabus] = useState<Syllabus[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    const fetchSyllabus = async () => {
-      try {
-        setLoading(true);
-        const response = await syllabusApi.getFiltered();
-        if (!response.success) throw new Error(response.message || 'Failed to fetch syllabus');
-        const items = response.data || [];
-        setSyllabus(items);
-        setFilteredSyllabus(items);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load syllabus');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data: response, error, isLoading } = useSWR<APIResponse<Syllabus[]>>(
+    '/syllabus',
+    fetcher,
+    { revalidateOnFocus: false }
+  );
 
-    fetchSyllabus();
-  }, []);
+  const syllabus = response?.data || [];
 
-  useEffect(() => {
+  const filteredSyllabus = useMemo(() => {
+    if (!searchQuery) return syllabus;
     const query = searchQuery.toLowerCase();
-    const filtered = syllabus.filter(item => 
+    return syllabus.filter(item =>
       item.name.toLowerCase().includes(query) ||
       item.department.toLowerCase().includes(query)
     );
-    setFilteredSyllabus(filtered);
   }, [searchQuery, syllabus]);
 
   const formatDate = (dateString: string) => {
@@ -109,9 +96,13 @@ export default function SyllabusPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {loading ? (
+                {isLoading ? (
                   <tr>
                     <td colSpan={3} className="px-6 py-12 text-center text-gray-500">Loading syllabus items...</td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">Failed to load syllabus. Please try again.</td>
                   </tr>
                 ) : filteredSyllabus.length === 0 ? (
                   <tr>

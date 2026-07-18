@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { pyqApi, departmentApi, sessionApi, reportApi } from '@/lib/api';
-import type { PYQPaper, Department, Branch, Session } from '@/types';
+import useSWR from 'swr';
+import { fetcher } from '@/lib/fetcher';
+import { pyqApi, sessionApi, reportApi } from '@/lib/api';
+import type { PYQPaper, Department, Branch, Session, APIResponse } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -17,13 +19,34 @@ export default function DepartmentPYQPage() {
   const router = useRouter();
   const departmentId = params.departmentId as string;
 
-  const [department, setDepartment] = useState<Department | null>(null);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [papers, setPapers] = useState<PYQPaper[]>([]);
-  const [filteredPapers, setFilteredPapers] = useState<PYQPaper[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  // SWR — cached data fetching, revalidates on focus disabled to avoid unnecessary requests
+  const { data: deptRes, error: deptError } = useSWR<APIResponse<Department>>(
+    `/departments/${departmentId}`,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  const { data: branchesRes, error: branchesError } = useSWR<APIResponse<Branch[]>>(
+    `/departments/${departmentId}/branches`,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  const { data: papersRes, error: papersError } = useSWR<APIResponse<PYQPaper[]>>(
+    `/pyq?departmentId=${departmentId}`,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  const { data: sessionsRes, error: sessionsError } = useSWR<APIResponse<Session[]>>(
+    '/sessions',
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const department = deptRes?.data || null;
+  const branches = branchesRes?.data || [];
+  const papers = papersRes?.data || [];
+  const sessions = sessionsRes?.data || [];
+  const loading = !deptRes && !deptError && !branchesRes && !papersRes && !sessionsRes;
+  const error = deptError || branchesError || papersError || sessionsError;
 
   // Filter states
   const [selectedBranch, setSelectedBranch] = useState<string>('');
@@ -31,6 +54,40 @@ export default function DepartmentPYQPage() {
   const [selectedSemester, setSelectedSemester] = useState<string>('');
   const [selectedExamType, setSelectedExamType] = useState<string>('');
   const [searchSubject, setSearchSubject] = useState('');
+
+  // Client-side filtering (instant, no API call)
+  const filteredPapers = useMemo(() => {
+    let filtered = [...papers];
+
+    if (selectedBranch) {
+      filtered = filtered.filter((p) => {
+        const branchId = typeof p.branchId === 'string' ? p.branchId : p.branchId._id;
+        return branchId === selectedBranch;
+      });
+    }
+    if (selectedSession) {
+      filtered = filtered.filter((p) => {
+        const sessionId = typeof p.sessionId === 'string' ? p.sessionId : p.sessionId._id;
+        return sessionId === selectedSession;
+      });
+    }
+    if (selectedSemester) {
+      filtered = filtered.filter((p) => p.semester === parseInt(selectedSemester));
+    }
+    if (selectedExamType) {
+      filtered = filtered.filter((p) => p.examType === selectedExamType);
+    }
+    if (searchSubject) {
+      const query = searchSubject.toLowerCase();
+      filtered = filtered.filter(
+        (p) =>
+          p.subjectName.toLowerCase().includes(query) ||
+          p.subjectCode?.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [selectedBranch, selectedSession, selectedSemester, selectedExamType, searchSubject, papers]);
 
   const { user } = useAuth();
   
@@ -83,68 +140,6 @@ export default function DepartmentPYQPage() {
       setSubmittingReport(false);
     }
   };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [deptRes, branchesRes, papersRes, sessionsRes] = await Promise.all([
-          departmentApi.getAll(),
-          departmentApi.getBranches(departmentId),
-          pyqApi.getFiltered({ departmentId }),
-          sessionApi.getAll(),
-        ]);
-
-        const dept = (deptRes.data || []).find((d: Department) => d._id === departmentId);
-        setDepartment(dept || null);
-        setBranches(branchesRes.data || []);
-        setPapers(papersRes.data || []);
-        setSessions(sessionsRes.data || []);
-        setFilteredPapers(papersRes.data || []);
-      } catch (err: unknown) {
-        setError('Failed to load data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [departmentId]);
-
-  useEffect(() => {
-    let filtered = [...papers];
-
-    if (selectedBranch) {
-      filtered = filtered.filter((p) => {
-        const branchId = typeof p.branchId === 'string' ? p.branchId : p.branchId._id;
-        return branchId === selectedBranch;
-      });
-    }
-
-    if (selectedSession) {
-      filtered = filtered.filter((p) => {
-        const sessionId = typeof p.sessionId === 'string' ? p.sessionId : p.sessionId._id;
-        return sessionId === selectedSession;
-      });
-    }
-
-    if (selectedSemester) {
-      filtered = filtered.filter((p) => p.semester === parseInt(selectedSemester));
-    }
-
-    if (selectedExamType) {
-      filtered = filtered.filter((p) => p.examType === selectedExamType);
-    }
-
-    if (searchSubject) {
-      filtered = filtered.filter(
-        (p) =>
-          p.subjectName.toLowerCase().includes(searchSubject.toLowerCase()) ||
-          p.subjectCode?.toLowerCase().includes(searchSubject.toLowerCase())
-      );
-    }
-
-    setFilteredPapers(filtered);
-  }, [selectedBranch, selectedSession, selectedSemester, selectedExamType, searchSubject, papers]);
 
   const handleDownload = async (paper: PYQPaper) => {
     try {
@@ -242,7 +237,7 @@ export default function DepartmentPYQPage() {
 
         {error && (
           <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>Failed to load data. Please try again.</AlertDescription>
           </Alert>
         )}
 

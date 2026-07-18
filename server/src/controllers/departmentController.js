@@ -1,6 +1,22 @@
 import { Department } from '../models/Department.js';
 import { Branch } from '../models/Branch.js';
 
+// Get single department by ID (public)
+export const getDepartmentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const department = await Department.findById(id);
+    if (!department || !department.isActive) {
+      res.status(404).json({ success: false, message: 'Department not found' });
+      return;
+    }
+    res.json({ success: true, data: department });
+  } catch (error) {
+    console.error('Get department by ID error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 // Get all departments (public)
 export const getDepartments = async (_req, res) => {
   try {

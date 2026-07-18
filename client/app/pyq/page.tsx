@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { departmentApi } from '@/lib/api';
-import type { Department } from '@/types';
+import { useState, useMemo } from 'react';
+import useSWR from 'swr';
+import { fetcher } from '@/lib/fetcher';
+import type { Department, APIResponse } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
@@ -10,32 +11,25 @@ import { Input } from '@/components/ui/input';
 import { Search, FolderOpen } from 'lucide-react';
 
 export default function PYQBrowsePage() {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        const response = await departmentApi.getAll();
-        setDepartments(response.data || []);
-      } catch (err: unknown) {
-        setError('Failed to load departments');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDepartments();
-  }, []);
-
-  const filteredDepartments = departments.filter(
-    (dept) =>
-      dept.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dept.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (dept.description && dept.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  const { data: response, error, isLoading } = useSWR<APIResponse<Department[]>>(
+    '/departments',
+    fetcher,
+    { revalidateOnFocus: false }
   );
+
+  const departments = response?.data || [];
+
+  const filteredDepartments = useMemo(() => {
+    if (!searchQuery) return departments;
+    return departments.filter(
+      (dept) =>
+        dept.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        dept.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (dept.description && dept.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  }, [searchQuery, departments]);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -48,7 +42,7 @@ export default function PYQBrowsePage() {
         </div>
 
         {/* Search Input for Departments */}
-        {!loading && departments.length > 0 && (
+        {!isLoading && departments.length > 0 && (
           <div className="max-w-md mx-auto mb-10">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -65,11 +59,11 @@ export default function PYQBrowsePage() {
 
         {error && (
           <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>Failed to load departments. Please try again.</AlertDescription>
           </Alert>
         )}
 
-        {loading ? (
+        {isLoading ? (
           <div className="text-center py-12">
             <p className="text-lg text-muted-foreground">Loading departments...</p>
           </div>
