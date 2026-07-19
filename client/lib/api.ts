@@ -15,6 +15,8 @@ import type {
   UserResponse,
   PublicUserProfile,
   Report,
+  Resume,
+  ResumeDraft,
 } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -264,6 +266,29 @@ export const userApi = {
   },
   unfollow: async (id: string): Promise<APIResponse<void>> => {
     const { data } = await apiClient.post<APIResponse<void>>(`/users/${id}/unfollow`);
+    return data;
+  },
+};
+
+export const resumeApi = {
+  list: async (): Promise<APIResponse<Resume[]>> => {
+    const { data } = await apiClient.get<APIResponse<Resume[]>>('/resumes');
+    return data;
+  },
+  create: async (resume: Partial<ResumeDraft>): Promise<APIResponse<Resume>> => {
+    const { data } = await apiClient.post<APIResponse<Resume>>('/resumes', resume);
+    return data;
+  },
+  get: async (id: string): Promise<APIResponse<Resume>> => {
+    const { data } = await apiClient.get<APIResponse<Resume>>(`/resumes/${id}`);
+    return data;
+  },
+  update: async (id: string, resume: Partial<ResumeDraft>): Promise<APIResponse<Resume>> => {
+    const { data } = await apiClient.put<APIResponse<Resume>>(`/resumes/${id}`, resume);
+    return data;
+  },
+  delete: async (id: string): Promise<APIResponse> => {
+    const { data } = await apiClient.delete<APIResponse>(`/resumes/${id}`);
     return data;
   },
 };

@@ -325,7 +325,7 @@ export default function Navbar() {
 
   const careerLinks: MenuLink[] = [
     { title: 'ATS Score Checker', href: '/coming-soon/ats-score', description: 'Check how your resume scores against ATS filters.', icon: <Target />, badge: 'new' },
-    { title: 'Resume Builder', href: '/coming-soon/resume-builder', description: 'Create an ATS-friendly resume in minutes.', icon: <FileCheck2 />, badge: 'new' },
+    { title: 'Resume Builder', href: '/resumes', description: 'Create, manage and export ATS-friendly resumes.', icon: <FileCheck2 />, badge: 'new' },
     { title: 'Career Hub', href: '/coming-soon/career', description: 'Internships, jobs & hackathons for students.', icon: <Briefcase />, badge: 'soon' },
   ];
 

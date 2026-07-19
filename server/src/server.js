@@ -22,6 +22,7 @@ import syllabusRoutes from './routes/syllabus.js';
 import userRoutes from './routes/users.js';
 import reportRoutes from './routes/reports.js';
 import pdfRoutes from './routes/pdf.js';
+import resumeRoutes from './routes/resumes.js';
 
 // Load environment variables
 dotenv.config();
@@ -72,7 +73,8 @@ const initApp = async () => {
   }));
 
   app.use(morgan('dev'));
-  app.use(express.json());
+  // Resume drafts can include a deliberately small base64 profile photo.
+  app.use(express.json({ limit: '3mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
 
@@ -91,6 +93,7 @@ const initApp = async () => {
   app.use('/api/users', userRoutes);
   app.use('/api/reports', reportRoutes);
   app.use('/api/pdf', pdfRoutes);
+  app.use('/api/resumes', resumeRoutes);
 
   // Error handling
   app.use(notFound);
